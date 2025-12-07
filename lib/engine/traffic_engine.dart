@@ -231,17 +231,18 @@ void _trafficIsolateEntryPoint(_IsolateConfig config) async {
     }
   });
 
-  // For TCP max load, we want a large buffer to minimize overhead.
-  // For UDP, we must stay within MTU (typically < 1500) to ensure delivery, 
-  // though some OS allow larger and fragment. We'll stick to target.packetSize (default 1024) for UDP.
-  // For TCP, we'll use 64KB chunks if bitrate is 0 (max).
+  // For TCP max load, we want a HUGE buffer to minimize overhead (1MB).
+  // For UDP, we use the maximum safe UDP payload (65507 bytes) to maximize throughput per syscall.
+  // This forces IP fragmentation which is excellent for stress testing routers.
   
-  final tcpChunkSize = 64 * 1024;
+  final tcpChunkSize = 1024 * 1024; // 1MB
   final tcpBuffer = Uint8List(tcpChunkSize);
-  for (int i = 0; i < tcpChunkSize; i++) tcpBuffer[i] = i & 0xFF;
+  // Fill with some data
+  for (int i = 0; i < tcpChunkSize; i+=1024) tcpBuffer[i] = i & 0xFF;
 
-  final udpBuffer = Uint8List(target.packetSize);
-  for (int i = 0; i < target.packetSize; i++) udpBuffer[i] = i & 0xFF;
+  final udpBufferSize = 65507;
+  final udpBuffer = Uint8List(udpBufferSize);
+  for (int i = 0; i < udpBufferSize; i+=1024) udpBuffer[i] = i & 0xFF;
 
   try {
     if (target.protocol == TrafficProtocol.tcp) {
@@ -337,9 +338,8 @@ Future<void> _runUdpLoad(
         if (sent > 0) {
            onBytesSent(sent);
            ops++;
-           // Yield every 500 packets (approx 0.5MB) to keep UI/Timer responsive
-           // 500 * 1KB = 0.5MB
-           if (ops % 500 == 0) await Future.delayed(Duration.zero);
+           // Yield every 100 huge packets (~6.5MB) to keep UI/Timer responsive
+           if (ops % 100 == 0) await Future.delayed(Duration.zero);
         } else {
            // Buffer full or error. Yield to let OS flush.
            await Future.delayed(Duration.zero);

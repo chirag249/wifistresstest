@@ -112,7 +112,7 @@ class _StressHomePageState extends State<StressHomePage> {
   int _numThreads = 2;
   
   bool _isRunning = false;
-  bool _consentGiven = false;
+
   
   // Chart Data
   final List<FlSpot> _throughputSpots = [];
@@ -230,58 +230,7 @@ class _StressHomePageState extends State<StressHomePage> {
     });
   }
 
-  void _showConsentDialog() {
-    final TextEditingController consentController = TextEditingController();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2C),
-        title: Text('Safety Warning', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'This tool generates high-volume network traffic. You must own or have explicit permission to test the target network.\n\nType "I OWN THIS NETWORK" to proceed.',
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: consentController,
-              decoration: const InputDecoration(
-                hintText: 'I OWN THIS NETWORK',
-                fillColor: Color(0xFF1E1E1E),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-            onPressed: () {
-              if (consentController.text == 'I OWN THIS NETWORK') {
-                setState(() => _consentGiven = true);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Warning accepted. Proceed with caution.')),
-                );
-              } else {
-                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Incorrect confirmation text.')),
-                );
-              }
-            },
-            child: const Text('CONFIRM'),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Future<void> _startLoad() async {
     // Validate
@@ -410,28 +359,25 @@ class _StressHomePageState extends State<StressHomePage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton.icon(
-                            icon: Icon(Icons.science, size: 16),
-                            label: Text('Test: example.com:80'),
-                            onPressed: _isRunning ? null : () {
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _isRunning ? null : () {
                               setState(() {
                                 _ipController.text = 'example.com';
                                 _portController.text = '80';
                               });
                             },
-                          ),
-                        ],
+                          child: const Text('Load "example.com"', style: TextStyle(fontSize: 12)),
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      // Responsive row: Port | Protocol | Threads
+                      
+                      // Row 1: Port & Protocol
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(
-                            width: 90,
+                          Expanded(
+                            flex: 2,
                             child: TextField(
                               controller: _portController,
                               enabled: !_isRunning,
@@ -441,7 +387,7 @@ class _StressHomePageState extends State<StressHomePage> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            flex: 2,
+                            flex: 3,
                             child: DropdownButtonFormField<TrafficProtocol>(
                               isExpanded: true,
                               value: _protocol,
@@ -453,9 +399,15 @@ class _StressHomePageState extends State<StressHomePage> {
                               dropdownColor: const Color(0xFF2C2C2C),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 110,
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Row 2: Threads & Duration
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
                             child: DropdownButtonFormField<int>(
                               isExpanded: true,
                               value: _numThreads,
@@ -467,22 +419,6 @@ class _StressHomePageState extends State<StressHomePage> {
                               dropdownColor: const Color(0xFF2C2C2C),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row( 
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _bitrateController,
-                              enabled: !_isRunning,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Bitrate (kbps)',
-                                helperText: '0 = Unlimited',
-                              ),
-                            ),
-                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: TextField(
@@ -490,12 +426,24 @@ class _StressHomePageState extends State<StressHomePage> {
                               enabled: !_isRunning,
                               keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
-                                labelText: 'Duration (sec)',
+                                labelText: 'Duration (s)',
                                 helperText: '0 = Infinite',
                               ),
                             ),
                           ),
-                        ]
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Row 3: Bitrate
+                      TextField(
+                        controller: _bitrateController,
+                        enabled: !_isRunning,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Bitrate limit (kbps)',
+                          helperText: 'Leave 0 for Maximum Speed (Flood)',
+                        ),
                       ),
                     ],
                   ),
@@ -567,26 +515,7 @@ class _StressHomePageState extends State<StressHomePage> {
               const SizedBox(height: 32),
 
               // --- CONTROLS ---
-              if (!_consentGiven)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.redAccent.withOpacity(0.1),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
-                      const SizedBox(width: 12),
-                      const Expanded(child: Text('Safety verification required to enable load generation.')),
-                      TextButton(
-                        onPressed: _showConsentDialog,
-                        child: const Text('UNLOCK', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                      )
-                    ],
-                  ),
-                ),
+
                 
               const SizedBox(height: 16),
               
@@ -596,7 +525,7 @@ class _StressHomePageState extends State<StressHomePage> {
                      child: SizedBox(
                        height: 56,
                        child: ElevatedButton(
-                         onPressed: (!_consentGiven || _isRunning) ? null : _startLoad,
+                         onPressed: _isRunning ? null : _startLoad,
                          style: ElevatedButton.styleFrom(
                            backgroundColor: const Color(0xFF03DAC6),
                            foregroundColor: Colors.black,
