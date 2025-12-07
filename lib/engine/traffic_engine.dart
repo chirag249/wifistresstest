@@ -275,40 +275,25 @@ Future<void> _runTcpLoad(
     // Timeout of 5 seconds to fail fast
     socket = await Socket.connect(addr, target.port, timeout: const Duration(seconds: 5));
     
-    // Disable Nagle's algorithm for lower latency/higher packet rate? 
-    // Actually for throughput, Nagle is fine, but we want to flood.
-    // socket.setOption(SocketOption.tcpNoDelay, true); 
+    // Nagle's off for lower latency initial sends?
+    socket.setOption(SocketOption.tcpNoDelay, true); 
 
     master.send({'event': 'worker_connected', 'worker': workerId, 'type': 'tcp', 'remote': '${addr.address}:${target.port}'});
     
     if (target.bitrateBps == 0) {
-      // MAX LOAD
-      // We loop tightly. Yielding too often kills performance.
-      // Yielding too rarely causes Isolate to lag on control messages (e.g. stop).
-      // We yield every 100 writes. With 64KB buffer, 100 writes = 6.4MB.
-      // At 1Gbps, 6.4MB takes ~50ms.
-      
-      int ops = 0;
-      while (isRunning()) {
-        try {
-          socket.add(buffer);
+      // MAX LOAD: Use addStream to respect backpressure and avoid OOM.
+      // Creating a stream of the buffer repeatedly.
+      Stream<List<int>> trafficGenerator() async* {
+        while (isRunning()) {
           onBytesSent(buffer.length);
-          ops++;
-          
-          if (ops % 100 == 0) {
-            await Future.delayed(Duration.zero);
-          }
-        } catch (e) {
-           // Socket might be closed by peer
-           throw e;
+          yield buffer;
         }
       }
+      // This will pipe data until generator stops (when isRunning is false) or socket closes
+      await socket.addStream(trafficGenerator());
+      
     } else {
       // PACED LOAD
-      // Use the smaller packet size from config if needed, or just standard pacing.
-      // If buffer is 64KB, pacing might be "bursty".
-      // Let's use the buffer passed in which is 64KB. This is fine for TCP pacing.
-      
       final targetBps = target.bitrateBps / target.numThreads;
       final targetBytesPerSec = targetBps / 8;
       

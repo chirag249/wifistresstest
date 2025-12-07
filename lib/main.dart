@@ -448,8 +448,8 @@ class _StressHomePageState extends State<StressHomePage> {
                               items: TrafficProtocol.values
                                   .map((p) => DropdownMenuItem(value: p, child: Text(p.name.toUpperCase())))
                                   .toList(),
-                              onChanged: _isRunning ? null : (v) => setState(() => _protocol = v ?? TrafficProtocol.tcp),
-                              decoration: const InputDecoration(labelText: 'Protocol'),
+                              onChanged: _isRunning ? null : (v) => setState(() => _protocol = v ?? TrafficProtocol.udp),
+                              decoration: const InputDecoration(labelText: 'Protocol', helperText: 'UDP recommended'),
                               dropdownColor: const Color(0xFF2C2C2C),
                             ),
                           ),
@@ -459,7 +459,7 @@ class _StressHomePageState extends State<StressHomePage> {
                             child: DropdownButtonFormField<int>(
                               isExpanded: true,
                               value: _numThreads,
-                              items: [1, 2, 4, 8, 16]
+                              items: [1, 2, 4, 8]
                                   .map((i) => DropdownMenuItem(value: i, child: Text('$i Threads')))
                                   .toList(),
                               onChanged: _isRunning ? null : (v) => setState(() => _numThreads = v ?? 1),
